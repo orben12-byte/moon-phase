@@ -1,5 +1,5 @@
-const CACHE = 'moon-v1';
-const SHELL = ['./', './index.html', './manifest.json'];
+const CACHE = 'moon-v2';
+const SHELL = ['./', './index.html', './manifest.json', './moon.jpg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
