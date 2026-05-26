@@ -117,6 +117,7 @@ body::before{
   color:var(--w50);border:none;background:none;transition:all .2s;letter-spacing:.02em;
 }
 .nav-pill.active{background:#fff;color:#000}
+.nav-pill.soon{opacity:.45;cursor:default}
 
 /* ── Location banner ── */
 #locBanner{
@@ -155,8 +156,8 @@ body::before{
 #phaseSection{text-align:center;padding:10px 22px 0}
 #phaseName{font-size:24px;font-weight:700;letter-spacing:.01em}
 #phaseSub{font-size:13px;color:var(--w50);margin-top:4px;letter-spacing:.06em}
-.pdots{display:flex;justify-content:center;gap:5px;margin-top:10px}
-.pd{width:5px;height:5px;border-radius:50%;background:var(--w20);transition:background .3s}
+.pdots{display:flex;justify-content:center;gap:7px;margin-top:10px}
+.pd{width:7px;height:7px;border-radius:50%;background:var(--w20);transition:background .3s}
 .pd.on{background:var(--w80)}
 
 /* ── Countdown ── */
@@ -243,10 +244,10 @@ body::before{
     </button>
     <div class="nav-pills">
       <button class="nav-pill active" onclick="setView('today',this)">Today</button>
-      <button class="nav-pill" onclick="setView('week',this)">Week</button>
-      <button class="nav-pill" onclick="setView('month',this)">Month</button>
+      <button class="nav-pill soon" onclick="showToast('Coming soon 🌙')">Week</button>
+      <button class="nav-pill soon" onclick="showToast('Coming soon 🌙')">Month</button>
     </div>
-    <button class="top-icon" title="Refresh">
+    <button class="top-icon" title="Refresh" onclick="if(loc) render(loc.lat, loc.lng, loc.city)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
         <path d="M3 3v5h5"/>
@@ -478,7 +479,7 @@ function render(lat, lng, city) {
 
   // Phase text
   document.getElementById('phaseName').textContent = name;
-  document.getElementById('phaseSub').textContent  = `${phaseRoman(phase)} · Day ${lDay} of 29`;
+  document.getElementById('phaseSub').textContent  = `Phase ${phaseRoman(phase)}`;
 
   // Phase dots (8 phases)
   const pIdx = Math.round(phase * 8) % 8;
@@ -588,7 +589,27 @@ function useDefault() {
 function setView(view, btn) {
   document.querySelectorAll('.nav-pill').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
-  // Week / Month coming in v2
+}
+
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = [
+      'position:fixed;bottom:72px;left:50%;transform:translateX(-50%)',
+      'background:rgba(30,30,50,.85);backdrop-filter:blur(14px)',
+      'border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85)',
+      'font-family:\'Jost\',sans-serif;font-size:13px;letter-spacing:.04em',
+      'padding:9px 20px;border-radius:999px;z-index:999;pointer-events:none',
+      'transition:opacity .35s;white-space:nowrap'
+    ].join(';');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
 }
 
 // ─── Refresh on tab focus ─────────────────────────────────────────────
