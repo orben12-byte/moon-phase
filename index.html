@@ -159,8 +159,26 @@ body::before{
 .pd{width:5px;height:5px;border-radius:50%;background:var(--w20);transition:background .3s}
 .pd.on{background:var(--w80)}
 
+/* ── Countdown ── */
+#countdown{
+  margin:14px 16px 0;
+  padding:13px 20px;
+  background:rgba(224,157,255,.09);
+  border:1px solid rgba(224,157,255,.2);
+  border-radius:16px;
+  display:flex;align-items:center;justify-content:space-between;
+  backdrop-filter:blur(12px);
+}
+#countdown.tonight{
+  background:rgba(224,157,255,.16);
+  border-color:rgba(224,157,255,.4);
+}
+.cd-label{font-size:12px;color:var(--w50);text-transform:uppercase;letter-spacing:.1em}
+.cd-value{font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.01em}
+.cd-icon{font-size:24px;opacity:.8}
+
 /* ── Cards ── */
-#cards{padding:14px 16px 0;display:flex;flex-direction:column;gap:10px}
+#cards{padding:10px 16px 0;display:flex;flex-direction:column;gap:10px}
 .card{
   background:rgba(255,255,255,.07);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -275,6 +293,15 @@ body::before{
     <div id="phaseName">—</div>
     <div id="phaseSub">—</div>
     <div class="pdots" id="pdots"></div>
+  </div>
+
+  <!-- Countdown -->
+  <div id="countdown">
+    <div>
+      <div class="cd-label">Next full moon</div>
+      <div class="cd-value" id="cdValue">—</div>
+    </div>
+    <div class="cd-icon">🌕</div>
   </div>
 
   <!-- Cards -->
@@ -489,8 +516,25 @@ function render(lat, lng, city) {
   // Info rows
   document.getElementById('lunarDayEl').textContent = `Day ${lDay} of 29`;
   document.getElementById('distEl').textContent     = fmtDistKm(pos.distance);
+
+  // Countdown
   const nf = nextFullMoon();
-  document.getElementById('nextFullEl').textContent = nf ? fmtDateShort(nf) : '—';
+  const cdEl = document.getElementById('countdown');
+  const cdVal = document.getElementById('cdValue');
+  if (nf) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const nfDay = new Date(nf); nfDay.setHours(0,0,0,0);
+    const days  = Math.round((nfDay - today) / 86400000);
+    if (days === 0) {
+      cdVal.textContent = 'Tonight! 🌕';
+      cdEl.classList.add('tonight');
+    } else if (days === 1) {
+      cdVal.textContent = 'Tomorrow';
+    } else {
+      cdVal.textContent = `in ${days} days`;
+    }
+    document.getElementById('nextFullEl').textContent = fmtDateShort(nf);
+  }
 
   // Description
   document.getElementById('descEl').textContent = PHASE_INFO[name] || '';
