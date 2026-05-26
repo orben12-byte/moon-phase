@@ -98,11 +98,7 @@ body::before{
 .ld-text{font-size:14px;color:var(--w50);letter-spacing:.08em}
 
 /* ── Status bar ── */
-#statusBar{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:14px 22px 0;font-size:13px;font-weight:500;
-}
-.sb-icons{display:flex;gap:6px;align-items:center}
+#statusBar{display:none}
 
 /* ── Topbar ── */
 #topbar{
@@ -216,26 +212,7 @@ body::before{
 
 <div id="app">
 
-  <!-- Status bar -->
-  <div id="statusBar">
-    <span id="clock">—</span>
-    <div class="sb-icons">
-      <svg width="15" height="11" viewBox="0 0 15 11" fill="rgba(255,255,255,.8)">
-        <rect x="0" y="4" width="2.5" height="7" rx=".8"/><rect x="4" y="2.5" width="2.5" height="8.5" rx=".8"/>
-        <rect x="8" y=".5" width="2.5" height="10.5" rx=".8"/><rect x="12" y="0" width="2.5" height="11" rx=".8" opacity=".28"/>
-      </svg>
-      <svg width="15" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.5">
-        <path d="M1.5 8C5 4.5 9 3 12 3s7 1.5 10.5 5"/><path d="M5 12c1.8-1.8 4-3 7-3s5.2 1.2 7 3"/>
-        <path d="M8.5 15.5c.9-1 2.2-1.5 3.5-1.5s2.6.5 3.5 1.5"/>
-        <circle cx="12" cy="19" r="1.5" fill="rgba(255,255,255,.8)" stroke="none"/>
-      </svg>
-      <svg width="24" height="11" viewBox="0 0 24 11" fill="none">
-        <rect x=".5" y=".5" width="20" height="10" rx="3" stroke="rgba(255,255,255,.8)"/>
-        <rect x="2" y="2" width="15" height="7" rx="1.5" fill="rgba(255,255,255,.8)"/>
-        <path d="M22 3.5v4a2 2 0 000-4z" fill="rgba(255,255,255,.4)"/>
-      </svg>
-    </div>
-  </div>
+  <div id="statusBar"></div>
 
   <!-- Nav -->
   <div id="topbar">
@@ -450,12 +427,6 @@ function nextFullMoon() {
   return null;
 }
 
-// ─── Clock ────────────────────────────────────────────────────────────
-function tickClock() {
-  document.getElementById('clock').textContent =
-    new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
-}
-setInterval(tickClock, 1000); tickClock();
 
 // ─── Render ───────────────────────────────────────────────────────────
 function render(lat, lng, city) {
