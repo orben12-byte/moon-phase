@@ -232,9 +232,15 @@ body::before{
 #monthView{display:none;padding:0 10px 36px}
 #mvNav{
   display:flex;align-items:center;justify-content:space-between;
-  height:48px;padding:0 4px;
+  height:52px;padding:0 4px;
 }
+.mv-title-group{display:flex;flex-direction:column;align-items:center;gap:2px}
 #mvTitle{font-size:18px;font-weight:700;letter-spacing:.01em}
+#mvTodayBtn{
+  display:none;font-family:'Jost',sans-serif;font-size:11px;font-weight:500;
+  color:var(--accent);background:none;border:none;cursor:pointer;
+  letter-spacing:.06em;text-transform:uppercase;padding:0;
+}
 .mv-arr{
   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   background:none;border:none;color:var(--accent);font-size:22px;
@@ -287,7 +293,6 @@ body::before{
     </button>
     <div class="nav-pills">
       <button class="nav-pill active" onclick="setView('today',this)">Today</button>
-      <button class="nav-pill soon" onclick="showToast('Coming soon 🌙')">Week</button>
       <button class="nav-pill" onclick="setView('month',this)">Month</button>
     </div>
     <button class="top-icon" title="Refresh" onclick="if(loc) render(loc.lat, loc.lng, loc.city)">
@@ -404,12 +409,15 @@ body::before{
   <div id="monthView">
     <div id="mvNav">
       <button class="mv-arr" onclick="shiftMonth(-1)">‹</button>
-      <span id="mvTitle"></span>
+      <div class="mv-title-group">
+        <span id="mvTitle"></span>
+        <button id="mvTodayBtn" onclick="goToToday()">↩ Today</button>
+      </div>
       <button class="mv-arr" onclick="shiftMonth(1)">›</button>
     </div>
     <div id="mvDow">
-      <span>Mon</span><span>Tue</span><span>Wed</span>
-      <span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+      <span>Sun</span><span>Mon</span><span>Tue</span>
+      <span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
     </div>
     <div id="mvGrid"></div>
   </div>
@@ -690,8 +698,13 @@ function renderMonth() {
   document.getElementById('mvTitle').textContent =
     first.toLocaleDateString([], {month:'long', year:'numeric'});
 
-  // Start offset: Mon=0 … Sun=6
-  let startDow = (first.getDay() + 6) % 7;
+  // Show "Today" button only when not on the current month
+  const now = new Date();
+  const isCurrentMonth = (y === now.getFullYear() && m === now.getMonth());
+  document.getElementById('mvTodayBtn').style.display = isCurrentMonth ? 'none' : 'inline';
+
+  // Start offset: Sun=0 … Sat=6
+  let startDow = first.getDay();
 
   const grid = document.getElementById('mvGrid');
   grid.innerHTML = '';
@@ -722,6 +735,11 @@ function renderMonth() {
 
 function shiftMonth(delta) {
   mvDate = new Date(mvDate.getFullYear(), mvDate.getMonth() + delta, 1);
+  renderMonth();
+}
+
+function goToToday() {
+  mvDate = new Date();
   renderMonth();
 }
 
