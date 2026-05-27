@@ -404,11 +404,11 @@ function shadowPath(frac, waxing) {
   if (frac <= .001) return `M${cx-R} ${cy} A${R} ${R} 0 1 0 ${cx+R} ${cy} A${R} ${R} 0 1 0 ${cx-R} ${cy}Z`;
   const tx = R * Math.abs(1 - 2*frac);
   if (waxing) {
-    if (frac < .5) return `M${cx} ${cy-R} A${R} ${R} 0 0 0 ${cx} ${cy+R} A${tx} ${R} 0 0 1 ${cx} ${cy-R}Z`;
-    else          return `M${cx} ${cy-R} A${R} ${R} 0 0 0 ${cx} ${cy+R} A${tx} ${R} 0 0 0 ${cx} ${cy-R}Z`;
+    if (frac < .5) return `M${cx} ${cy-R} A${R} ${R} 0 0 0 ${cx} ${cy+R} A${tx} ${R} 0 0 0 ${cx} ${cy-R}Z`;
+    else          return `M${cx} ${cy-R} A${R} ${R} 0 0 0 ${cx} ${cy+R} A${tx} ${R} 0 0 1 ${cx} ${cy-R}Z`;
   } else {
-    if (frac > .5) return `M${cx} ${cy-R} A${R} ${R} 0 0 1 ${cx} ${cy+R} A${tx} ${R} 0 0 1 ${cx} ${cy-R}Z`;
-    else           return `M${cx} ${cy-R} A${R} ${R} 0 0 1 ${cx} ${cy+R} A${tx} ${R} 0 0 0 ${cx} ${cy-R}Z`;
+    if (frac > .5) return `M${cx} ${cy-R} A${R} ${R} 0 0 1 ${cx} ${cy+R} A${tx} ${R} 0 0 0 ${cx} ${cy-R}Z`;
+    else           return `M${cx} ${cy-R} A${R} ${R} 0 0 1 ${cx} ${cy+R} A${tx} ${R} 0 0 1 ${cx} ${cy-R}Z`;
   }
 }
 
