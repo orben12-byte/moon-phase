@@ -167,17 +167,33 @@ body::before{
   background:rgba(224,157,255,.09);
   border:1px solid rgba(224,157,255,.2);
   border-radius:16px;
-  display:flex;align-items:center;justify-content:space-between;
+  display:flex;flex-direction:column;
   backdrop-filter:blur(12px);
 }
 #countdown.tonight{
   background:rgba(224,157,255,.16);
   border-color:rgba(224,157,255,.4);
 }
+.cd-row{display:flex;align-items:center;justify-content:space-between}
 .cd-label{font-size:12px;color:var(--w50);text-transform:uppercase;letter-spacing:.1em}
 .cd-value{font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.01em;line-height:1.15}
 .cd-date{font-size:12px;color:var(--w50);margin-top:2px;letter-spacing:.04em}
 .cd-icon{font-size:24px;opacity:.8}
+
+/* ── Mini Full Moon Window ── */
+.mw-strip{
+  display:flex;justify-content:space-between;
+  margin-top:12px;padding-top:11px;
+  border-top:1px solid rgba(255,255,255,.1);
+}
+.mw-day{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.mw-date{font-size:11px;color:var(--w50);letter-spacing:.03em}
+.mw-icon{font-size:20px;line-height:1.2}
+.mw-pct{font-size:11px;color:var(--w50)}
+.mw-day.peak .mw-date{color:var(--accent);font-weight:600}
+.mw-day.peak .mw-icon{font-size:26px}
+.mw-day.peak .mw-pct{color:var(--accent);font-weight:600}
+.mw-day.today .mw-date{color:#fff;font-weight:600}
 
 /* ── Cards ── */
 #cards{padding:10px 16px 0;display:flex;flex-direction:column;gap:10px}
@@ -212,12 +228,6 @@ body::before{
 .ival{font-size:14px;font-weight:500}
 .ival.ac{color:var(--accent)}
 
-/* Desc card */
-.desc-card{
-  background:linear-gradient(135deg,rgba(224,157,255,.09) 0%,rgba(75,35,135,.12) 100%);
-  border-color:rgba(224,157,255,.17);
-}
-.desc-text{font-size:14px;line-height:1.68;color:var(--w80)}
 </style>
 </head>
 <body>
@@ -297,14 +307,17 @@ body::before{
     <div class="pdots" id="pdots"></div>
   </div>
 
-  <!-- Countdown -->
+  <!-- Countdown + Mini Window -->
   <div id="countdown">
-    <div>
-      <div class="cd-label">Next full moon</div>
-      <div class="cd-value" id="cdValue">—</div>
-      <div class="cd-date" id="cdDate"></div>
+    <div class="cd-row">
+      <div>
+        <div class="cd-label">Next full moon</div>
+        <div class="cd-value" id="cdValue">—</div>
+        <div class="cd-date" id="cdDate"></div>
+      </div>
+      <div class="cd-icon">🌕</div>
     </div>
-    <div class="cd-icon">🌕</div>
+    <div class="mw-strip" id="mwStrip"></div>
   </div>
 
   <!-- Cards -->
@@ -346,11 +359,6 @@ body::before{
         <span class="ilbl">Distance</span>
         <span class="ival" id="distEl">—</span>
       </div>
-    </div>
-
-    <!-- Description -->
-    <div class="card desc-card">
-      <div class="desc-text" id="descEl">—</div>
     </div>
 
   </div>
@@ -435,6 +443,41 @@ function isAbove(rise, set) {
   if (!set)  return now > +rise;
   if (+rise < +set) return now >= +rise && now < +set;
   return now < +set || now >= +rise;   // moonrise after moonset (crosses midnight)
+}
+
+// Moon phase emoji
+function moonEmoji(phase) {
+  if (phase < 0.0625 || phase >= 0.9375) return '🌑';
+  if (phase < 0.1875) return '🌒';
+  if (phase < 0.3125) return '🌓';
+  if (phase < 0.4375) return '🌔';
+  if (phase < 0.5625) return '🌕';
+  if (phase < 0.6875) return '🌖';
+  if (phase < 0.8125) return '🌗';
+  return '🌘';
+}
+
+// Build 5-day strip around next full moon
+function buildMiniWindow(nf) {
+  const strip = document.getElementById('mwStrip');
+  if (!strip || !nf) return;
+  strip.innerHTML = '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  for (let i = -2; i <= 2; i++) {
+    const d = new Date(nf);
+    d.setDate(nf.getDate() + i);
+    d.setHours(12,0,0,0);
+    const ill = SunCalc.getMoonIllumination(d);
+    const isPeak  = (i === 0);
+    const isToday = (d.getTime() === today.getTime());
+    const div = document.createElement('div');
+    div.className = 'mw-day' + (isPeak ? ' peak' : '') + (isToday ? ' today' : '');
+    div.innerHTML =
+      `<div class="mw-date">${d.toLocaleDateString([],{day:'numeric',month:'short'})}</div>` +
+      `<div class="mw-icon">${moonEmoji(ill.phase)}</div>` +
+      `<div class="mw-pct">${Math.round(ill.fraction*100)}%</div>`;
+    strip.appendChild(div);
+  }
 }
 
 // Find next full moon by iterating days
@@ -536,10 +579,8 @@ function render(lat, lng, city) {
       cdVal.textContent  = `in ${days} days`;
       cdDate.textContent = fmtDateShort(nf);
     }
+    buildMiniWindow(nf);
   }
-
-  // Description
-  document.getElementById('descEl').textContent = PHASE_INFO[name] || '';
 
   // Hide loading
   const ld = document.getElementById('loading');
