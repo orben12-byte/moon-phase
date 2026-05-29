@@ -283,6 +283,13 @@ body::before{
     height .45s cubic-bezier(.34,1.1,.64,1);
 }
 
+/* ── Section stagger-rise (Month → Today) ── */
+@keyframes stagger-rise {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.sr { animation: stagger-rise .28s ease both; }
+
 </style>
 </head>
 <body>
@@ -833,27 +840,47 @@ function setView(view, btn) {
     }, 240);
 
   } else if (view === 'today') {
-    // ── Month → Today: MOONRISE ─────────────────────────────────────
-    // Calendar fades out; Today view rises from below like a moonrise.
+    // ── Month → Today: MOONRISE + STAGGER ───────────────────────────
+    // Calendar fades out. View rises from below (moonrise).
+    // Moon hero rises with the view; content sections stagger in after.
     monthV.style.transition = 'opacity .24s ease';
     monthV.style.opacity    = '0';
 
-    todayV.style.display    = '';
-    todayV.style.opacity    = '0';
-    todayV.style.transform  = 'translateY(28px)';
+    // Sections that stagger in after the moon hero (CSS animation — no setTimeout chain)
+    const staggerEls = ['phaseSection', 'countdown', 'cards']
+      .map(id => document.getElementById(id)).filter(Boolean);
 
-    // Start rising after short overlap with month fade-out
+    // Clear any lingering stagger from a previous transition
+    staggerEls.forEach(el => { el.classList.remove('sr'); el.style.animationDelay = ''; });
+
+    todayV.style.display   = '';
+    todayV.style.opacity   = '0';
+    todayV.style.transform = 'translateY(28px)';
+
+    // Assign stagger delays and add class immediately
+    // fill-mode:both keeps sections at opacity:0 during the delay,
+    // then animates to opacity:1 — no inline opacity needed
+    staggerEls.forEach((el, i) => {
+      el.style.animationDelay = (0.21 + i * 0.055) + 's'; // 210ms, 265ms, 320ms
+      el.classList.add('sr');
+    });
+
     setTimeout(() => {
-      todayV.style.transition = 'opacity .32s ease, transform .4s cubic-bezier(.25,.46,.45,.94)';
+      // View rises (moon comes up first)
+      todayV.style.transition = 'opacity .30s ease, transform .4s cubic-bezier(.25,.46,.45,.94)';
       todayV.style.opacity    = '1';
       todayV.style.transform  = 'translateY(0)';
-      // Clean up inline styles after transition completes
       setTimeout(() => {
         todayV.style.transition = '';
         todayV.style.transform  = '';
         todayV.style.opacity    = '';
       }, 450);
     }, 130);
+
+    // Clean up animation after all sections have settled
+    setTimeout(() => {
+      staggerEls.forEach(el => { el.classList.remove('sr'); el.style.animationDelay = ''; });
+    }, 750);
 
     // Formalise month as hidden
     setTimeout(() => {
