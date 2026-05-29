@@ -833,53 +833,29 @@ function setView(view, btn) {
     }, 240);
 
   } else if (view === 'today') {
-    // ── Month → Today ───────────────────────────────────────────────
-    const todayCell = monthV.querySelector('.mvc.today');
-
-    // ① Fade out month; reveal today (invisible)
+    // ── Month → Today: MOONRISE ─────────────────────────────────────
+    // Calendar fades out; Today view rises from below like a moonrise.
     monthV.style.transition = 'opacity .24s ease';
     monthV.style.opacity    = '0';
+
     todayV.style.display    = '';
     todayV.style.opacity    = '0';
+    todayV.style.transform  = 'translateY(28px)';
 
-    // ② Today fades in (overlapping)
+    // Start rising after short overlap with month fade-out
     setTimeout(() => {
-      todayV.style.transition = 'opacity .3s ease';
+      todayV.style.transition = 'opacity .32s ease, transform .4s cubic-bezier(.25,.46,.45,.94)';
       todayV.style.opacity    = '1';
-      todayV.addEventListener('transitionend', () => todayV.style.transition = '', { once: true });
-    }, 120);
-
-    // ③ Moon grows from today cell → hero
-    if (todayCell) {
-      const fromRect = todayCell.getBoundingClientRect();
-      const heroRect = document.getElementById('moonSvg').getBoundingClientRect();
-      const clone    = createFlyingMoon(fromRect);
-      clone.style.opacity = '0';  // starts invisible (grows into view)
-
-      requestAnimationFrame(() => {
-        clone.style.transition = [
-          'left .46s cubic-bezier(.34,1.1,.64,1)',
-          'top .46s cubic-bezier(.34,1.1,.64,1)',
-          'width .46s cubic-bezier(.34,1.1,.64,1)',
-          'height .46s cubic-bezier(.34,1.1,.64,1)',
-          'opacity .22s ease'   // fades in at start of flight
-        ].join(',');
-        clone.style.left    = heroRect.left   + 'px';
-        clone.style.top     = heroRect.top    + 'px';
-        clone.style.width   = heroRect.width  + 'px';
-        clone.style.height  = heroRect.height + 'px';
-        clone.style.opacity = '0.88';
-      });
-      // Start fade-out at 370ms (flat, not nested inside rAF)
+      todayV.style.transform  = 'translateY(0)';
+      // Clean up inline styles after transition completes
       setTimeout(() => {
-        clone.style.transition = 'opacity .18s ease';
-        clone.style.opacity    = '0';
-      }, 370);
-      // Hard cleanup at 650ms regardless
-      setTimeout(() => clone.remove(), 650);
-    }
+        todayV.style.transition = '';
+        todayV.style.transform  = '';
+        todayV.style.opacity    = '';
+      }, 450);
+    }, 130);
 
-    // ④ Formalise month as hidden
+    // Formalise month as hidden
     setTimeout(() => {
       monthV.style.display    = 'none';
       monthV.style.transition = '';
