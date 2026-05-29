@@ -771,70 +771,120 @@ function createFlyingMoon(rect) {
   return el;
 }
 
-function flyTo(clone, toRect) {
-  requestAnimationFrame(() => {
-    clone.style.left   = toRect.left   + 'px';
-    clone.style.top    = toRect.top    + 'px';
-    clone.style.width  = toRect.width  + 'px';
-    clone.style.height = toRect.height + 'px';
-    clone.addEventListener('transitionend', function h(e) {
-      if (e.propertyName !== 'left') return;
-      clone.removeEventListener('transitionend', h);
-      clone.remove();
-    });
-  });
-}
-
 function setView(view, btn) {
   document.querySelectorAll('.nav-pill').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
 
-  const todayView = document.getElementById('todayView');
-  const monthView = document.getElementById('monthView');
+  const todayV = document.getElementById('todayView');
+  const monthV = document.getElementById('monthView');
 
   if (view === 'month') {
-    // Capture source — big moon
-    const fromRect = document.getElementById('moonSvg').getBoundingClientRect();
-    const clone = createFlyingMoon(fromRect);
+    // ── Today → Month ───────────────────────────────────────────────
+    const heroRect = document.getElementById('moonSvg').getBoundingClientRect();
+    const clone    = createFlyingMoon(heroRect);  // opaque at hero position
 
-    // Switch views, render month hidden
-    todayView.style.display = 'none';
-    monthView.style.opacity = '0';
-    monthView.style.display = 'block';
+    // ① Fade out today content; prepare month view invisible
+    todayV.style.transition = 'opacity .24s ease';
+    todayV.style.opacity    = '0';
+    monthV.style.display    = 'block';
+    monthV.style.opacity    = '0';
     renderMonth();
 
-    // Two rAFs → layout is settled, today-cell position is real
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      monthView.style.transition = 'opacity .3s ease';
-      monthView.style.opacity    = '1';
-      monthView.addEventListener('transitionend', () => monthView.style.transition = '', { once: true });
+    // ② Month fades in (overlapping with today fade-out)
+    setTimeout(() => {
+      monthV.style.transition = 'opacity .3s ease';
+      monthV.style.opacity    = '1';
+      monthV.addEventListener('transitionend', () => monthV.style.transition = '', { once: true });
+    }, 120);
 
-      const todayCell = monthView.querySelector('.mvc.today');
-      if (todayCell) flyTo(clone, todayCell.getBoundingClientRect());
-      else           clone.remove();
-    }));
+    // ③ Once today is invisible: hide it, fly the moon
+    setTimeout(() => {
+      todayV.style.display    = 'none';
+      todayV.style.transition = '';
+      todayV.style.opacity    = '';
+
+      const todayCell = monthV.querySelector('.mvc.today');
+      let toRect;
+      if (todayCell) {
+        toRect = todayCell.getBoundingClientRect();
+      } else {
+        // Fallback: dissolve toward center of grid
+        const g = document.getElementById('mvGrid').getBoundingClientRect();
+        const s = heroRect.width * 0.28;
+        toRect = { left: g.left + g.width/2 - s/2, top: g.top + g.height*0.25, width: s, height: s };
+      }
+
+      requestAnimationFrame(() => {
+        clone.style.transition = [
+          'left .46s cubic-bezier(.34,1.1,.64,1)',
+          'top .46s cubic-bezier(.34,1.1,.64,1)',
+          'width .46s cubic-bezier(.34,1.1,.64,1)',
+          'height .46s cubic-bezier(.34,1.1,.64,1)',
+          'opacity .28s ease .18s'  // fade starts mid-flight, finishes before landing
+        ].join(',');
+        clone.style.left    = toRect.left   + 'px';
+        clone.style.top     = toRect.top    + 'px';
+        clone.style.width   = toRect.width  + 'px';
+        clone.style.height  = toRect.height + 'px';
+        clone.style.opacity = '0';
+      });
+
+      setTimeout(() => clone.remove(), 600);
+    }, 240);
 
   } else if (view === 'today') {
-    // Capture source — today cell in calendar
-    const todayCell = monthView.querySelector('.mvc.today');
-    const fromRect  = todayCell ? todayCell.getBoundingClientRect() : null;
-    const clone     = fromRect ? createFlyingMoon(fromRect) : null;
+    // ── Month → Today ───────────────────────────────────────────────
+    const todayCell = monthV.querySelector('.mvc.today');
 
-    // Switch views
-    monthView.style.display = 'none';
-    todayView.style.opacity = '0';
-    todayView.style.display = '';
+    // ① Fade out month; reveal today (invisible)
+    monthV.style.transition = 'opacity .24s ease';
+    monthV.style.opacity    = '0';
+    todayV.style.display    = '';
+    todayV.style.opacity    = '0';
 
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      todayView.style.transition = 'opacity .3s ease';
-      todayView.style.opacity    = '1';
-      todayView.addEventListener('transitionend', () => todayView.style.transition = '', { once: true });
+    // ② Today fades in (overlapping)
+    setTimeout(() => {
+      todayV.style.transition = 'opacity .3s ease';
+      todayV.style.opacity    = '1';
+      todayV.addEventListener('transitionend', () => todayV.style.transition = '', { once: true });
+    }, 120);
 
-      if (clone) {
-        const to = document.getElementById('moonSvg').getBoundingClientRect();
-        flyTo(clone, to);
-      }
-    }));
+    // ③ Moon grows from today cell → hero
+    if (todayCell) {
+      const fromRect = todayCell.getBoundingClientRect();
+      const heroRect = document.getElementById('moonSvg').getBoundingClientRect();
+      const clone    = createFlyingMoon(fromRect);
+      clone.style.opacity = '0';  // starts invisible (grows into view)
+
+      requestAnimationFrame(() => {
+        clone.style.transition = [
+          'left .46s cubic-bezier(.34,1.1,.64,1)',
+          'top .46s cubic-bezier(.34,1.1,.64,1)',
+          'width .46s cubic-bezier(.34,1.1,.64,1)',
+          'height .46s cubic-bezier(.34,1.1,.64,1)',
+          'opacity .22s ease'   // fades in at start of flight
+        ].join(',');
+        clone.style.left    = heroRect.left   + 'px';
+        clone.style.top     = heroRect.top    + 'px';
+        clone.style.width   = heroRect.width  + 'px';
+        clone.style.height  = heroRect.height + 'px';
+        clone.style.opacity = '0.88';
+      });
+      // Start fade-out at 370ms (flat, not nested inside rAF)
+      setTimeout(() => {
+        clone.style.transition = 'opacity .18s ease';
+        clone.style.opacity    = '0';
+      }, 370);
+      // Hard cleanup at 650ms regardless
+      setTimeout(() => clone.remove(), 650);
+    }
+
+    // ④ Formalise month as hidden
+    setTimeout(() => {
+      monthV.style.display    = 'none';
+      monthV.style.transition = '';
+      monthV.style.opacity    = '';
+    }, 560);
   }
 }
 
