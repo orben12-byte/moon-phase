@@ -228,6 +228,16 @@ body::before{
 .ival{font-size:14px;font-weight:500}
 .ival.ac{color:var(--accent)}
 
+/* ── View Container — CSS grid overlay so both views share the same space ── */
+#viewContainer{
+  display:grid;
+}
+#viewContainer > div{
+  grid-area:1/1;
+  width:100%;
+  min-height:1px;
+}
+
 /* ── Month View ── */
 #monthView{display:none;padding:0 10px 36px}
 #mvNav{
@@ -290,6 +300,13 @@ body::before{
 }
 .sr { animation: stagger-rise .28s ease both; }
 
+/* ── Calendar grid entrance (Today → Month) ── */
+@keyframes grid-up {
+  from { transform:translateY(10px); }
+  to   { transform:translateY(0); }
+}
+.mvg-enter { animation: grid-up .35s cubic-bezier(.25,.46,.45,.94) .1s both; }
+
 </style>
 </head>
 <body>
@@ -330,6 +347,9 @@ body::before{
   <div id="locBanner" onclick="requestLocation()">
     📍 Using default location · Tap to use yours
   </div>
+
+  <!-- ── View Container (CSS grid overlay — both views share the same space) ── -->
+  <div id="viewContainer">
 
   <!-- ── Today View ── -->
   <div id="todayView">
@@ -444,6 +464,8 @@ body::before{
     </div>
     <div id="mvGrid"></div>
   </div>
+
+  </div><!-- /viewContainer -->
 
 </div>
 
@@ -787,57 +809,64 @@ function setView(view, btn) {
 
   if (view === 'month') {
     // ── Today → Month ───────────────────────────────────────────────
+    // Both views share the same grid space (#viewContainer), so monthV's
+    // cell positions are correct immediately — no need to wait for todayV to hide.
     const heroRect = document.getElementById('moonSvg').getBoundingClientRect();
-    const clone    = createFlyingMoon(heroRect);  // opaque at hero position
+    const clone    = createFlyingMoon(heroRect);
 
-    // ① Fade out today content; prepare month view invisible
+    // ① Fade out today content; show month view invisible
     todayV.style.transition = 'opacity .24s ease';
     todayV.style.opacity    = '0';
     monthV.style.display    = 'block';
     monthV.style.opacity    = '0';
     renderMonth();
 
-    // ② Month fades in (overlapping with today fade-out)
-    setTimeout(() => {
-      monthV.style.transition = 'opacity .3s ease';
-      monthV.style.opacity    = '1';
-      monthV.addEventListener('transitionend', () => monthV.style.transition = '', { once: true });
-    }, 120);
+    // ② Grid rises in as part of the month entrance
+    const grid = document.getElementById('mvGrid');
+    grid.classList.remove('mvg-enter');
+    void grid.offsetWidth;  // force reflow so animation restarts
+    grid.classList.add('mvg-enter');
 
-    // ③ Once today is invisible: hide it, fly the moon
-    setTimeout(() => {
-      todayV.style.display    = 'none';
-      todayV.style.transition = '';
-      todayV.style.opacity    = '';
-
+    // ③ Moon starts flying NOW — rects are accurate because views share the same space
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const todayCell = monthV.querySelector('.mvc.today');
       let toRect;
       if (todayCell) {
         toRect = todayCell.getBoundingClientRect();
       } else {
-        // Fallback: dissolve toward center of grid
-        const g = document.getElementById('mvGrid').getBoundingClientRect();
+        const g = grid.getBoundingClientRect();
         const s = heroRect.width * 0.28;
         toRect = { left: g.left + g.width/2 - s/2, top: g.top + g.height*0.25, width: s, height: s };
       }
+      clone.style.transition = [
+        'left .46s cubic-bezier(.34,1.1,.64,1)',
+        'top .46s cubic-bezier(.34,1.1,.64,1)',
+        'width .46s cubic-bezier(.34,1.1,.64,1)',
+        'height .46s cubic-bezier(.34,1.1,.64,1)',
+        'opacity .28s ease .18s'
+      ].join(',');
+      clone.style.left    = toRect.left   + 'px';
+      clone.style.top     = toRect.top    + 'px';
+      clone.style.width   = toRect.width  + 'px';
+      clone.style.height  = toRect.height + 'px';
+      clone.style.opacity = '0';
+    }));
 
-      requestAnimationFrame(() => {
-        clone.style.transition = [
-          'left .46s cubic-bezier(.34,1.1,.64,1)',
-          'top .46s cubic-bezier(.34,1.1,.64,1)',
-          'width .46s cubic-bezier(.34,1.1,.64,1)',
-          'height .46s cubic-bezier(.34,1.1,.64,1)',
-          'opacity .28s ease .18s'  // fade starts mid-flight, finishes before landing
-        ].join(',');
-        clone.style.left    = toRect.left   + 'px';
-        clone.style.top     = toRect.top    + 'px';
-        clone.style.width   = toRect.width  + 'px';
-        clone.style.height  = toRect.height + 'px';
-        clone.style.opacity = '0';
-      });
+    // ④ Month fades in (overlapping with today fade-out)
+    setTimeout(() => {
+      monthV.style.transition = 'opacity .3s ease';
+      monthV.style.opacity    = '1';
+      monthV.addEventListener('transitionend', () => monthV.style.transition = '', { once: true });
+    }, 100);
 
-      setTimeout(() => clone.remove(), 600);
+    // ⑤ Formalise today as hidden; clean up clone + grid animation
+    setTimeout(() => {
+      todayV.style.display    = 'none';
+      todayV.style.transition = '';
+      todayV.style.opacity    = '';
+      setTimeout(() => clone.remove(), 400);
     }, 240);
+    setTimeout(() => grid.classList.remove('mvg-enter'), 650);
 
   } else if (view === 'today') {
     // ── Month → Today: MOONRISE + STAGGER ───────────────────────────
