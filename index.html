@@ -267,6 +267,22 @@ body::before{
 .mvc-emoji{font-size:20px;line-height:1}
 .mvc.full .mvc-emoji{font-size:24px;filter:drop-shadow(0 0 5px rgba(224,157,255,.7))}
 
+/* ── Shared Element Transition ── */
+.flying-moon{
+  position:fixed;
+  border-radius:50%;
+  background:url('./moon.jpg') center/cover;
+  box-shadow:0 0 28px rgba(210,200,190,.2),0 0 60px rgba(210,200,190,.09);
+  z-index:200;
+  pointer-events:none;
+  will-change:left,top,width,height;
+  transition:
+    left   .52s cubic-bezier(.34,1.1,.64,1),
+    top    .52s cubic-bezier(.34,1.1,.64,1),
+    width  .45s cubic-bezier(.34,1.1,.64,1),
+    height .45s cubic-bezier(.34,1.1,.64,1);
+}
+
 </style>
 </head>
 <body>
@@ -744,6 +760,31 @@ function goToToday() {
 }
 
 // ─── Nav ─────────────────────────────────────────────────────────────
+function createFlyingMoon(rect) {
+  const el = document.createElement('div');
+  el.className = 'flying-moon';
+  el.style.left   = rect.left   + 'px';
+  el.style.top    = rect.top    + 'px';
+  el.style.width  = rect.width  + 'px';
+  el.style.height = rect.height + 'px';
+  document.body.appendChild(el);
+  return el;
+}
+
+function flyTo(clone, toRect) {
+  requestAnimationFrame(() => {
+    clone.style.left   = toRect.left   + 'px';
+    clone.style.top    = toRect.top    + 'px';
+    clone.style.width  = toRect.width  + 'px';
+    clone.style.height = toRect.height + 'px';
+    clone.addEventListener('transitionend', function h(e) {
+      if (e.propertyName !== 'left') return;
+      clone.removeEventListener('transitionend', h);
+      clone.remove();
+    });
+  });
+}
+
 function setView(view, btn) {
   document.querySelectorAll('.nav-pill').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
@@ -751,13 +792,49 @@ function setView(view, btn) {
   const todayView = document.getElementById('todayView');
   const monthView = document.getElementById('monthView');
 
-  if (view === 'today') {
-    todayView.style.display = '';
-    monthView.style.display = 'none';
-  } else if (view === 'month') {
+  if (view === 'month') {
+    // Capture source — big moon
+    const fromRect = document.getElementById('moonSvg').getBoundingClientRect();
+    const clone = createFlyingMoon(fromRect);
+
+    // Switch views, render month hidden
     todayView.style.display = 'none';
+    monthView.style.opacity = '0';
     monthView.style.display = 'block';
     renderMonth();
+
+    // Two rAFs → layout is settled, today-cell position is real
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      monthView.style.transition = 'opacity .3s ease';
+      monthView.style.opacity    = '1';
+      monthView.addEventListener('transitionend', () => monthView.style.transition = '', { once: true });
+
+      const todayCell = monthView.querySelector('.mvc.today');
+      if (todayCell) flyTo(clone, todayCell.getBoundingClientRect());
+      else           clone.remove();
+    }));
+
+  } else if (view === 'today') {
+    // Capture source — today cell in calendar
+    const todayCell = monthView.querySelector('.mvc.today');
+    const fromRect  = todayCell ? todayCell.getBoundingClientRect() : null;
+    const clone     = fromRect ? createFlyingMoon(fromRect) : null;
+
+    // Switch views
+    monthView.style.display = 'none';
+    todayView.style.opacity = '0';
+    todayView.style.display = '';
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      todayView.style.transition = 'opacity .3s ease';
+      todayView.style.opacity    = '1';
+      todayView.addEventListener('transitionend', () => todayView.style.transition = '', { once: true });
+
+      if (clone) {
+        const to = document.getElementById('moonSvg').getBoundingClientRect();
+        flyTo(clone, to);
+      }
+    }));
   }
 }
 
