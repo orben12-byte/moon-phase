@@ -307,6 +307,15 @@ body::before{
 }
 .mvg-enter { animation: grid-up .35s cubic-bezier(.25,.46,.45,.94) .1s both; }
 
+/* ── Location button spinner ── */
+@keyframes loc-spin { to { transform:rotate(360deg); } }
+.loc-loading::before {
+  content:'';position:absolute;inset:3px;border-radius:50%;
+  border:1.5px solid transparent;
+  border-top-color:var(--accent);
+  animation:loc-spin .75s linear infinite;
+}
+
 /* ── Bell active dot ── */
 .top-icon{position:relative}
 .bell-active::after{
@@ -384,7 +393,7 @@ body::before{
 
   <!-- Nav -->
   <div id="topbar">
-    <button class="top-icon" onclick="requestLocation()" title="Refresh location">
+    <button class="top-icon" id="locBtn" onclick="requestLocation()" title="Update location">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
         <circle cx="12" cy="9" r="2.5"/>
@@ -862,23 +871,32 @@ async function tryIPFallback() {
 }
 
 async function requestLocation() {
-  if (!navigator.geolocation) { useDefault(); return; }
+  const btn = document.getElementById('locBtn');
+  if (btn) btn.classList.add('loc-loading');
+
+  const done = () => { if (btn) btn.classList.remove('loc-loading'); };
+
+  if (!navigator.geolocation) { done(); useDefault(); return; }
   navigator.geolocation.getCurrentPosition(
     pos => {
+      done();
       loc = {lat:pos.coords.latitude, lng:pos.coords.longitude, city:'Your Location'};
       usingDefault = false;
       document.getElementById('locBanner').classList.remove('show');
       render(loc.lat, loc.lng, loc.city);
+      showToast('📍 Location updated');
     },
     async () => {
       const ip = await tryIPFallback();
+      done();
       if (ip) {
         loc = ip; usingDefault = false;
         document.getElementById('locBanner').classList.remove('show');
+        render(loc.lat, loc.lng, loc.city);
+        showToast('📍 ' + (ip.city || 'Approximate location'));
       } else {
-        useDefault(); return;
+        useDefault();
       }
-      render(loc.lat, loc.lng, loc.city);
     },
     {timeout:5000, maximumAge:300000}
   );
