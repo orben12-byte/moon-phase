@@ -307,6 +307,65 @@ body::before{
 }
 .mvg-enter { animation: grid-up .35s cubic-bezier(.25,.46,.45,.94) .1s both; }
 
+/* ── Bell active dot ── */
+.top-icon{position:relative}
+.bell-active::after{
+  content:'';position:absolute;top:6px;right:6px;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);border:1.5px solid #050810;
+}
+
+/* ── Notification Sheet ── */
+#notifOverlay{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:rgba(5,8,16,0);backdrop-filter:blur(0px);
+  align-items:flex-end;justify-content:center;
+  transition:background .32s ease,backdrop-filter .32s ease;
+}
+#notifOverlay.open{background:rgba(5,8,16,.6);backdrop-filter:blur(4px)}
+#notifSheet{
+  width:min(390px,100vw);
+  background:rgba(18,14,32,.97);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:24px 24px 0 0;
+  padding:12px 24px 44px;
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.25,.46,.45,.94);
+}
+#notifOverlay.open #notifSheet{transform:translateY(0)}
+.ns-handle{
+  width:36px;height:4px;border-radius:2px;
+  background:rgba(255,255,255,.2);margin:0 auto 20px;
+}
+.ns-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.ns-next{font-size:13px;color:var(--w50);margin-bottom:20px;letter-spacing:.03em}
+.ns-label{font-size:11px;color:var(--w50);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.ns-presets{display:flex;gap:8px;margin-bottom:24px}
+.ns-preset{
+  flex:1;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;
+  padding:9px 4px;border-radius:12px;cursor:pointer;letter-spacing:.02em;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  color:var(--w50);transition:all .2s;
+}
+.ns-preset.active{
+  background:rgba(224,157,255,.18);
+  border-color:rgba(224,157,255,.4);
+  color:var(--accent);
+}
+.ns-toggle{
+  width:100%;font-family:'Jost',sans-serif;font-size:15px;font-weight:600;
+  padding:14px;border-radius:14px;cursor:pointer;letter-spacing:.02em;
+  background:var(--accent);border:none;color:#120820;
+  transition:opacity .2s;margin-bottom:12px;display:block;
+}
+.ns-toggle:active{opacity:.8}
+.ns-toggle.cancel{background:rgba(255,255,255,.1);color:var(--w80)}
+.ns-close-btn{
+  width:100%;font-family:'Jost',sans-serif;font-size:14px;
+  padding:10px;border-radius:14px;cursor:pointer;
+  background:none;border:none;color:var(--w50);display:block;
+}
+
 </style>
 </head>
 <body>
@@ -335,10 +394,10 @@ body::before{
       <button class="nav-pill active" onclick="setView('today',this)">Today</button>
       <button class="nav-pill" onclick="setView('month',this)">Month</button>
     </div>
-    <button class="top-icon" title="Refresh" onclick="if(loc) render(loc.lat, loc.lng, loc.city)">
+    <button class="top-icon" id="bellBtn" onclick="openNotifSheet()" title="Full moon reminder">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-        <path d="M3 3v5h5"/>
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
       </svg>
     </button>
   </div>
@@ -469,6 +528,23 @@ body::before{
 
 </div>
 
+<!-- Notification Sheet -->
+<div id="notifOverlay" onclick="if(event.target===this)closeNotifSheet()">
+  <div id="notifSheet">
+    <div class="ns-handle"></div>
+    <div class="ns-title">Full Moon Reminder</div>
+    <div class="ns-next" id="nsNextFull"></div>
+    <div class="ns-label">Remind me</div>
+    <div class="ns-presets">
+      <button class="ns-preset active" data-days="3" onclick="selectPreset(3)">3 days before</button>
+      <button class="ns-preset"        data-days="1" onclick="selectPreset(1)">1 day before</button>
+      <button class="ns-preset"        data-days="0" onclick="selectPreset(0)">That night</button>
+    </div>
+    <button class="ns-toggle" id="nsToggle" onclick="toggleReminder()">Enable Reminder</button>
+    <button class="ns-close-btn" onclick="closeNotifSheet()">Cancel</button>
+  </div>
+</div>
+
 <script>
 // ─── Constants ────────────────────────────────────────────────────────
 const DEFAULT = {lat:32.0853, lng:34.7818, city:'Tel Aviv'};
@@ -485,6 +561,8 @@ const PHASE_INFO = {
 };
 
 let loc = null, usingDefault = false;
+let reminder = JSON.parse(localStorage.getItem('moonReminder') || 'null');
+let selectedDays = reminder ? reminder.daysBefore : 3;
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 function getPhaseName(p) {
@@ -601,6 +679,87 @@ function nextFullMoon() {
   return null;
 }
 
+
+// ─── Notifications ────────────────────────────────────────────────────
+function updateBell() {
+  const btn = document.getElementById('bellBtn');
+  if (btn) btn.classList.toggle('bell-active', !!(reminder && reminder.enabled));
+}
+
+function openNotifSheet() {
+  selectedDays = reminder ? reminder.daysBefore : 3;
+  const nf = nextFullMoon();
+  document.getElementById('nsNextFull').textContent =
+    nf ? 'Next full moon: ' + fmtDateShort(nf) : '';
+  document.querySelectorAll('.ns-preset').forEach(b =>
+    b.classList.toggle('active', +b.dataset.days === selectedDays));
+  const isActive = !!(reminder && reminder.enabled);
+  const btn = document.getElementById('nsToggle');
+  btn.textContent = isActive ? 'Cancel Reminder' : 'Enable Reminder';
+  btn.classList.toggle('cancel', isActive);
+  const overlay = document.getElementById('notifOverlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => overlay.classList.add('open'));
+}
+
+function closeNotifSheet() {
+  const overlay = document.getElementById('notifOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.style.display = 'none'; }, 320);
+}
+
+function selectPreset(days) {
+  selectedDays = days;
+  document.querySelectorAll('.ns-preset').forEach(b =>
+    b.classList.toggle('active', +b.dataset.days === days));
+}
+
+async function toggleReminder() {
+  if (reminder && reminder.enabled) {
+    reminder = null;
+    localStorage.removeItem('moonReminder');
+    localStorage.removeItem('moonNotifShown');
+    updateBell();
+    closeNotifSheet();
+    showToast('Reminder cancelled');
+    return;
+  }
+  if (!('Notification' in window)) {
+    showToast('Notifications not supported on this device');
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    showToast('Allow notifications in browser settings');
+    return;
+  }
+  const nf = nextFullMoon();
+  reminder = { enabled: true, daysBefore: selectedDays, fullMoonDate: nf ? nf.toISOString() : null };
+  localStorage.setItem('moonReminder', JSON.stringify(reminder));
+  updateBell();
+  closeNotifSheet();
+  const label = selectedDays === 0 ? 'night of the full moon'
+    : `${selectedDays} day${selectedDays > 1 ? 's' : ''} before`;
+  showToast('Reminder set · ' + label);
+}
+
+function checkReminder() {
+  if (!reminder || !reminder.enabled) return;
+  if (Notification.permission !== 'granted') return;
+  const nf = nextFullMoon();
+  if (!nf) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const nfDay = new Date(nf); nfDay.setHours(0,0,0,0);
+  const daysUntil = Math.round((nfDay - today) / 86400000);
+  if (daysUntil > reminder.daysBefore || daysUntil < 0) return;
+  const todayStr = today.toISOString().split('T')[0];
+  if (localStorage.getItem('moonNotifShown') === todayStr) return;
+  const body = daysUntil === 0 ? 'Full moon tonight! 🌕'
+    : `Full moon in ${daysUntil} day${daysUntil > 1 ? 's' : ''} 🌔`;
+  new Notification('Moon Phase', { body, icon: './icons/icon-192.png' });
+  localStorage.setItem('moonNotifShown', todayStr);
+}
 
 // ─── Render ───────────────────────────────────────────────────────────
 function render(lat, lng, city) {
@@ -948,6 +1107,8 @@ document.addEventListener('visibilitychange', () => {
 
 // ─── Init ─────────────────────────────────────────────────────────────
 navigator.geolocation ? requestLocation() : useDefault();
+checkReminder();
+updateBell();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(()=>{});
