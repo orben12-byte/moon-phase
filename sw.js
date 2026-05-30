@@ -1,4 +1,4 @@
-const CACHE = 'moon-v17';
+const CACHE = 'moon-v18';
 const SHELL = ['./', './index.html', './manifest.json', './moon.jpg', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -16,8 +16,9 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Never cache location API
+  // Never cache external APIs
   if (e.request.url.includes('ipapi.co')) return;
+  if (e.request.url.includes('geocoding-api.open-meteo.com')) return;
 
   e.respondWith(
     caches.match(e.request).then(cached => {

@@ -324,6 +324,62 @@ body::before{
   background:var(--accent);border:1.5px solid #050810;
 }
 
+/* ── Location Sheet ── */
+#locOverlay{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:rgba(5,8,16,0);backdrop-filter:blur(0px);
+  align-items:flex-end;justify-content:center;
+  transition:background .32s ease,backdrop-filter .32s ease;
+}
+#locOverlay.open{background:rgba(5,8,16,.6);backdrop-filter:blur(4px)}
+#locSheet{
+  width:min(390px,100vw);
+  background:rgba(18,14,32,.97);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:24px 24px 0 0;
+  padding:12px 24px 44px;
+  transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.25,.46,.45,.94);
+  max-height:80vh;overflow-y:auto;
+}
+#locOverlay.open #locSheet{transform:translateY(0)}
+.ls-gps{
+  width:100%;font-family:'Jost',sans-serif;font-size:15px;font-weight:600;
+  padding:13px;border-radius:14px;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;gap:8px;
+  background:rgba(224,157,255,.13);border:1px solid rgba(224,157,255,.28);
+  color:var(--accent);transition:opacity .2s;margin-bottom:16px;
+}
+.ls-gps:active{opacity:.75}
+.ls-or{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  font-size:11px;color:var(--w50);letter-spacing:.08em;text-transform:uppercase;
+}
+.ls-or::before,.ls-or::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
+.ls-search-wrap{position:relative;margin-bottom:6px}
+#locSearch{
+  width:100%;font-family:'Jost',sans-serif;font-size:15px;
+  padding:12px 16px 12px 42px;border-radius:12px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  color:#fff;outline:none;transition:border-color .2s;
+}
+#locSearch::placeholder{color:var(--w50)}
+#locSearch:focus{border-color:rgba(224,157,255,.4)}
+.ls-search-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  color:var(--w50);pointer-events:none;
+}
+#locResults{margin-top:4px}
+.ls-result{
+  padding:11px 12px;border-radius:12px;cursor:pointer;
+  transition:background .15s;border-bottom:1px solid rgba(255,255,255,.05);
+}
+.ls-result:last-child{border-bottom:none}
+.ls-result:active{background:rgba(255,255,255,.08)}
+.ls-result-name{font-size:15px;font-weight:500;color:#fff}
+.ls-result-sub{font-size:12px;color:var(--w50);margin-top:2px}
+.ls-msg{font-size:13px;color:var(--w50);text-align:center;padding:16px 0}
+
 /* ── Notification Sheet ── */
 #notifOverlay{
   display:none;position:fixed;inset:0;z-index:300;
@@ -393,7 +449,7 @@ body::before{
 
   <!-- Nav -->
   <div id="topbar">
-    <button class="top-icon" id="locBtn" onclick="requestLocation()" title="Update location">
+    <button class="top-icon" id="locBtn" onclick="openLocSheet()" title="Change location">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
         <circle cx="12" cy="9" r="2.5"/>
@@ -535,6 +591,29 @@ body::before{
 
   </div><!-- /viewContainer -->
 
+</div>
+
+<!-- Location Sheet -->
+<div id="locOverlay" onclick="if(event.target===this)closeLocSheet()">
+  <div id="locSheet">
+    <div class="ns-handle"></div>
+    <div class="ns-title">Location</div>
+    <button class="ls-gps" onclick="useGPS()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5"/>
+      </svg>
+      Use my location
+    </button>
+    <div class="ls-or">or</div>
+    <div class="ls-search-wrap">
+      <svg class="ls-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="locSearch" type="text" placeholder="Search city..." oninput="searchCity(this.value)" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="locResults"></div>
+  </div>
 </div>
 
 <!-- Notification Sheet -->
@@ -688,6 +767,71 @@ function nextFullMoon() {
   return null;
 }
 
+
+// ─── Location Sheet ───────────────────────────────────────────────────
+let locSearchTimer = null;
+
+function openLocSheet() {
+  const input = document.getElementById('locSearch');
+  input.value = '';
+  document.getElementById('locResults').innerHTML = '';
+  const overlay = document.getElementById('locOverlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => overlay.classList.add('open'));
+  setTimeout(() => input.focus(), 340);
+}
+
+function closeLocSheet() {
+  const overlay = document.getElementById('locOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.style.display = 'none'; }, 320);
+}
+
+function useGPS() {
+  closeLocSheet();
+  requestLocation();
+}
+
+function searchCity(q) {
+  clearTimeout(locSearchTimer);
+  const results = document.getElementById('locResults');
+  if (q.length < 2) { results.innerHTML = ''; return; }
+  locSearchTimer = setTimeout(() => doSearch(q), 350);
+}
+
+async function doSearch(q) {
+  const results = document.getElementById('locResults');
+  results.innerHTML = '<div class="ls-msg">Searching…</div>';
+  try {
+    const r = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`
+    );
+    const d = await r.json();
+    if (!d.results || d.results.length === 0) {
+      results.innerHTML = '<div class="ls-msg">No cities found</div>';
+      return;
+    }
+    results.innerHTML = d.results.map(c => {
+      const sub = [c.admin1, c.country].filter(Boolean).join(', ');
+      const safeName = c.name.replace(/'/g, "\\'");
+      return `<div class="ls-result" onclick="selectCity('${safeName}',${c.latitude},${c.longitude})">
+        <div class="ls-result-name">${c.name}</div>
+        ${sub ? `<div class="ls-result-sub">${sub}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch {
+    results.innerHTML = '<div class="ls-msg">Search unavailable</div>';
+  }
+}
+
+function selectCity(name, lat, lng) {
+  loc = { lat, lng, city: name };
+  usingDefault = false;
+  document.getElementById('locBanner').classList.remove('show');
+  render(lat, lng, name);
+  closeLocSheet();
+  showToast('📍 ' + name);
+}
 
 // ─── Notifications ────────────────────────────────────────────────────
 function updateBell() {
