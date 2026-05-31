@@ -156,6 +156,8 @@ body::before{
 #phaseSection{text-align:center;padding:10px 22px 0}
 #phaseName{font-size:24px;font-weight:700;letter-spacing:.01em}
 #phaseSub{font-size:13px;color:var(--w50);margin-top:4px;letter-spacing:.06em}
+.moon-sign{font-size:13px;color:var(--w50);margin-top:5px;letter-spacing:.04em}
+.moon-sign-sym{font-size:15px;color:var(--accent);margin-right:4px}
 .pdots{display:flex;justify-content:center;gap:7px;margin-top:10px}
 .pd{width:7px;height:7px;border-radius:50%;background:var(--w20);transition:background .3s}
 .pd.on{background:var(--w80)}
@@ -488,8 +490,7 @@ body::before{
   <div id="moonSection">
     <div class="orbit orb2"></div>
     <div class="orbit orb1"></div>
-    <div class="planet pl-tl">♄</div>
-    <div class="planet pl-br">🪐</div>
+
 
     <svg id="moonSvg" width="220" height="220" viewBox="0 0 240 240">
       <defs>
@@ -512,6 +513,7 @@ body::before{
   <div id="phaseSection">
     <div id="phaseName">—</div>
     <div id="phaseSub">—</div>
+    <div id="moonSign" class="moon-sign"></div>
     <div class="pdots" id="pdots"></div>
   </div>
 
@@ -653,6 +655,19 @@ let reminder = JSON.parse(localStorage.getItem('moonReminder') || 'null');
 let selectedDays = reminder ? reminder.daysBefore : 3;
 
 // ─── Helpers ──────────────────────────────────────────────────────────
+function getMoonSign(date) {
+  const d = (date - new Date('2000-01-01T12:00:00Z')) / 86400000;
+  const L = (218.316 + 13.176396 * d) % 360;
+  const M = (134.963 + 13.064993 * d) * Math.PI / 180;
+  const lon = ((L + 6.289 * Math.sin(M)) % 360 + 360) % 360;
+  const names   = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
+                   'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+  const symbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
+                  .map(s => s + '︎'); // force text rendering, no emoji glyph
+  const i = Math.floor(lon / 30);
+  return { name: names[i], symbol: symbols[i] };
+}
+
 function getPhaseName(p) {
   if (p < .0625 || p >= .9375) return 'New Moon';
   if (p < .1875) return 'Waxing Crescent';
@@ -940,6 +955,9 @@ function render(lat, lng, city) {
   // Phase text
   document.getElementById('phaseName').textContent = name;
   document.getElementById('phaseSub').textContent  = `Phase ${phaseRoman(phase)}`;
+  const sign = getMoonSign(now);
+  document.getElementById('moonSign').innerHTML =
+    `<span class="moon-sign-sym">${sign.symbol}</span>${sign.name}`;
 
   // Phase dots (8 phases)
   const pIdx = Math.round(phase * 8) % 8;
