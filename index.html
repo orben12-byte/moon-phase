@@ -156,8 +156,7 @@ body::before{
 #phaseSection{text-align:center;padding:10px 22px 0}
 #phaseName{font-size:24px;font-weight:700;letter-spacing:.01em}
 #phaseSub{font-size:13px;color:var(--w50);margin-top:4px;letter-spacing:.06em}
-.moon-sign{font-size:13px;color:var(--w50);margin-top:5px;letter-spacing:.04em}
-.moon-sign-sym{font-size:15px;color:var(--accent);margin-right:4px}
+.ps-sign{color:var(--accent)}
 .pdots{display:flex;justify-content:center;gap:7px;margin-top:10px}
 .pd{width:7px;height:7px;border-radius:50%;background:var(--w20);transition:background .3s}
 .pd.on{background:var(--w80)}
@@ -513,7 +512,6 @@ body::before{
   <div id="phaseSection">
     <div id="phaseName">—</div>
     <div id="phaseSub">—</div>
-    <div id="moonSign" class="moon-sign"></div>
     <div class="pdots" id="pdots"></div>
   </div>
 
@@ -954,10 +952,9 @@ function render(lat, lng, city) {
 
   // Phase text
   document.getElementById('phaseName').textContent = name;
-  document.getElementById('phaseSub').textContent  = `Phase ${phaseRoman(phase)}`;
   const sign = getMoonSign(now);
-  document.getElementById('moonSign').innerHTML =
-    `<span class="moon-sign-sym">${sign.symbol}</span>${sign.name}`;
+  document.getElementById('phaseSub').innerHTML =
+    `Phase ${phaseRoman(phase)} · <span class="ps-sign">${sign.symbol} ${sign.name}</span>`;
 
   // Phase dots (8 phases)
   const pIdx = Math.round(phase * 8) % 8;
