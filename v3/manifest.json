@@ -1,0 +1,14 @@
+{
+  "name": "Moon Phase",
+  "short_name": "Moon",
+  "description": "Daily moon phase — rise, set, illumination and cycle",
+  "start_url": "/moon-phase/v3/",
+  "display": "standalone",
+  "background_color": "#050810",
+  "theme_color": "#050810",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
