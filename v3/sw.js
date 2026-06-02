@@ -1,4 +1,4 @@
-const CACHE = 'moon-v3';
+const CACHE = 'moon-v3b';
 const SHELL = ['./', './index.html', './manifest.json', './moon.jpg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

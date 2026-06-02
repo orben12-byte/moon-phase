@@ -325,6 +325,22 @@ body::before{
   background:var(--accent);border:1.5px solid #050810;
 }
 
+/* ── Scrub date banner ── */
+#scrubBanner{
+  display:none;margin:6px 22px 0;padding:7px 16px;
+  background:rgba(224,157,255,.08);border:1px solid rgba(224,157,255,.2);
+  border-radius:10px;font-size:12px;color:var(--accent);
+  letter-spacing:.02em;align-items:center;justify-content:center;gap:10px;
+}
+#scrubBanner.show{display:flex}
+#scrubDateLabel{flex:1;text-align:center}
+#scrubTodayBtn{
+  font-family:'Jost',sans-serif;font-size:12px;font-weight:600;
+  color:var(--accent);background:none;
+  border:1px solid rgba(224,157,255,.3);border-radius:8px;
+  padding:3px 10px;cursor:pointer;letter-spacing:.03em;flex-shrink:0;
+}
+
 /* ── Location Sheet ── */
 #locOverlay{
   display:none;position:fixed;inset:0;z-index:300;
@@ -471,6 +487,12 @@ body::before{
   <!-- Location banner -->
   <div id="locBanner" onclick="requestLocation()">
     📍 Using default location · Tap to use yours
+  </div>
+
+  <!-- Scrub date banner (visible when not viewing today) -->
+  <div id="scrubBanner">
+    <span id="scrubDateLabel"></span>
+    <button id="scrubTodayBtn" onclick="resetToToday()">↩ Today</button>
   </div>
 
   <!-- ── View Container (CSS grid overlay — both views share the same space) ── -->
@@ -651,6 +673,7 @@ const PHASE_INFO = {
 let loc = null, usingDefault = false;
 let reminder = JSON.parse(localStorage.getItem('moonReminder') || 'null');
 let selectedDays = reminder ? reminder.daysBefore : 3;
+let viewDate = new Date(); viewDate.setHours(12,0,0,0);
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 function getMoonSign(date) {
@@ -765,8 +788,8 @@ function buildMiniWindow(nf) {
 }
 
 // Find last full moon by iterating backwards
-function lastFullMoon() {
-  const base = new Date(); base.setHours(12,0,0,0);
+function lastFullMoon(from) {
+  const base = from ? new Date(from) : new Date(); base.setHours(12,0,0,0);
   let prev = SunCalc.getMoonIllumination(base).fraction;
   for (let i = 1; i <= 35; i++) {
     const d = new Date(base); d.setDate(base.getDate() - i); d.setHours(12,0,0,0);
@@ -781,8 +804,8 @@ function lastFullMoon() {
 }
 
 // Find next full moon by iterating days
-function nextFullMoon() {
-  const base = new Date(); base.setHours(12,0,0,0);
+function nextFullMoon(from) {
+  const base = from ? new Date(from) : new Date(); base.setHours(12,0,0,0);
   let prev = SunCalc.getMoonIllumination(base).fraction;
   for (let i=1; i<=35; i++) {
     const d = new Date(base); d.setDate(base.getDate()+i);
@@ -856,8 +879,10 @@ async function doSearch(q) {
 function selectCity(name, lat, lng) {
   loc = { lat, lng, city: name };
   usingDefault = false;
+  viewDate = new Date(); viewDate.setHours(12,0,0,0);
   document.getElementById('locBanner').classList.remove('show');
-  render(lat, lng, name);
+  updateScrubBanner();
+  render(lat, lng, name, viewDate);
   closeLocSheet();
   showToast('📍 ' + name);
 }
@@ -944,8 +969,8 @@ function checkReminder() {
 }
 
 // ─── Render ───────────────────────────────────────────────────────────
-function render(lat, lng, city) {
-  const now = new Date();
+function render(lat, lng, city, date) {
+  const now = date ? new Date(date) : new Date();
   const moon  = SunCalc.getMoonIllumination(now);
   const times = SunCalc.getMoonTimes(now, lat, lng);
   const pos   = SunCalc.getMoonPosition(now, lat, lng);
@@ -1008,7 +1033,7 @@ function render(lat, lng, city) {
   document.getElementById('distEl').textContent     = fmtDistKm(pos.distance);
 
   // Countdown
-  const nf = nextFullMoon();
+  const nf = nextFullMoon(now);
   const cdEl   = document.getElementById('countdown');
   const cdVal  = document.getElementById('cdValue');
   const cdDate = document.getElementById('cdDate');
@@ -1016,13 +1041,13 @@ function render(lat, lng, city) {
   cdEl.classList.remove('tonight');
 
   if (nf) {
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(now); today.setHours(0,0,0,0);
     const nfDay = new Date(nf); nfDay.setHours(0,0,0,0);
     const days  = Math.round((nfDay - today) / 86400000);
 
     // Just past full moon: waning and still very bright
     if (!waxing && frac > 0.98) {
-      const lf = lastFullMoon();
+      const lf = lastFullMoon(now);
       if (lf) {
         const lfDay = new Date(lf); lfDay.setHours(0,0,0,0);
         const daysAgo = Math.round((today - lfDay) / 86400000);
@@ -1078,8 +1103,10 @@ async function requestLocation() {
       done();
       loc = {lat:pos.coords.latitude, lng:pos.coords.longitude, city:'Your Location'};
       usingDefault = false;
+      viewDate = new Date(); viewDate.setHours(12,0,0,0);
       document.getElementById('locBanner').classList.remove('show');
-      render(loc.lat, loc.lng, loc.city);
+      updateScrubBanner();
+      render(loc.lat, loc.lng, loc.city, viewDate);
       showToast('📍 Location updated');
     },
     async () => {
@@ -1087,8 +1114,10 @@ async function requestLocation() {
       done();
       if (ip) {
         loc = ip; usingDefault = false;
+        viewDate = new Date(); viewDate.setHours(12,0,0,0);
         document.getElementById('locBanner').classList.remove('show');
-        render(loc.lat, loc.lng, loc.city);
+        updateScrubBanner();
+        render(loc.lat, loc.lng, loc.city, viewDate);
         showToast('📍 ' + (ip.city || 'Approximate location'));
       } else {
         useDefault();
@@ -1100,8 +1129,10 @@ async function requestLocation() {
 
 function useDefault() {
   loc = DEFAULT; usingDefault = true;
+  viewDate = new Date(); viewDate.setHours(12,0,0,0);
   document.getElementById('locBanner').classList.add('show');
-  render(loc.lat, loc.lng, loc.city);
+  updateScrubBanner();
+  render(loc.lat, loc.lng, loc.city, viewDate);
 }
 
 // ─── Month View ──────────────────────────────────────────────────────
@@ -1314,9 +1345,104 @@ function showToast(msg) {
   t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
 }
 
+// ─── Date Scrub (swipe on moon) ──────────────────────────────────────────
+let swipeStart = null;
+const moonSection = document.getElementById('moonSection');
+
+function isToday(date) {
+  const t = new Date(); t.setHours(0,0,0,0);
+  const d = new Date(date); d.setHours(0,0,0,0);
+  return t.getTime() === d.getTime();
+}
+
+function updateScrubBanner() {
+  const banner = document.getElementById('scrubBanner');
+  const label  = document.getElementById('scrubDateLabel');
+  if (isToday(viewDate)) {
+    banner.classList.remove('show');
+  } else {
+    label.textContent = '📅 ' + fmtDateLong(viewDate);
+    banner.classList.add('show');
+  }
+}
+
+function resetToToday() {
+  viewDate = new Date(); viewDate.setHours(12,0,0,0);
+  updateScrubBanner();
+  if (loc) render(loc.lat, loc.lng, loc.city, viewDate);
+}
+
+moonSection.addEventListener('touchstart', e => {
+  swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+}, { passive: true });
+
+moonSection.addEventListener('touchmove', e => {
+  if (!swipeStart) return;
+  const dx = e.touches[0].clientX - swipeStart.x;
+  const dy = e.touches[0].clientY - swipeStart.y;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const moon = document.getElementById('moonSvg');
+    const shift = Math.max(-60, Math.min(60, dx * 0.35));
+    moon.style.transform = `translateX(${shift}px)`;
+  }
+}, { passive: true });
+
+moonSection.addEventListener('touchend', e => {
+  if (!swipeStart) return;
+  const dx = e.changedTouches[0].clientX - swipeStart.x;
+  const moon = document.getElementById('moonSvg');
+
+  if (Math.abs(dx) > 40) {
+    const direction = dx < 0 ? 1 : -1; // swipe left = +1 day, swipe right = -1 day
+
+    // Exit: moon slides out in swipe direction
+    moon.style.transition = 'transform .18s ease, opacity .15s ease';
+    moon.style.transform  = `translateX(${direction * -140}px)`;
+    moon.style.opacity    = '0';
+
+    setTimeout(() => {
+      viewDate = new Date(viewDate);
+      viewDate.setDate(viewDate.getDate() + direction);
+      viewDate.setHours(12,0,0,0);
+
+      if (loc) render(loc.lat, loc.lng, loc.city, viewDate);
+      updateScrubBanner();
+
+      // Enter: new moon comes in from opposite side
+      moon.style.transition = 'none';
+      moon.style.transform  = `translateX(${direction * 140}px)`;
+      moon.style.opacity    = '0';
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        moon.style.transition = 'transform .28s cubic-bezier(.25,.46,.45,.94), opacity .22s ease';
+        moon.style.transform  = 'translateX(0)';
+        moon.style.opacity    = '1';
+      }));
+
+      setTimeout(() => {
+        moon.style.transition = '';
+        moon.style.transform  = '';
+        moon.style.opacity    = '';
+      }, 350);
+    }, 180);
+
+  } else {
+    // Not enough swipe — snap back
+    moon.style.transition = 'transform .18s ease';
+    moon.style.transform  = 'translateX(0)';
+    setTimeout(() => { moon.style.transition = ''; moon.style.transform = ''; }, 200);
+  }
+
+  swipeStart = null;
+}, { passive: true });
+
 // ─── Refresh on tab focus ─────────────────────────────────────────────
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && loc) render(loc.lat, loc.lng, loc.city);
+  if (!document.hidden && loc) {
+    viewDate = new Date(); viewDate.setHours(12,0,0,0);
+    updateScrubBanner();
+    render(loc.lat, loc.lng, loc.city, viewDate);
+  }
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────
