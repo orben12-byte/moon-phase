@@ -325,6 +325,22 @@ body::before{
   background:var(--accent);border:1.5px solid #050810;
 }
 
+/* ── Scrub date banner ── */
+#scrubBanner{
+  display:none;margin:6px 22px 0;padding:7px 16px;
+  background:rgba(224,157,255,.08);border:1px solid rgba(224,157,255,.2);
+  border-radius:10px;font-size:12px;color:var(--accent);
+  letter-spacing:.02em;align-items:center;justify-content:center;gap:10px;
+}
+#scrubBanner.show{display:flex}
+#scrubDateLabel{flex:1;text-align:center}
+#scrubTodayBtn{
+  font-family:'Jost',sans-serif;font-size:12px;font-weight:600;
+  color:var(--accent);background:none;
+  border:1px solid rgba(224,157,255,.3);border-radius:8px;
+  padding:3px 10px;cursor:pointer;letter-spacing:.03em;flex-shrink:0;
+}
+
 /* ── Location Sheet ── */
 #locOverlay{
   display:none;position:fixed;inset:0;z-index:300;
@@ -473,6 +489,12 @@ body::before{
     📍 Using default location · Tap to use yours
   </div>
 
+  <!-- Scrub date banner (visible when not viewing today) -->
+  <div id="scrubBanner">
+    <span id="scrubDateLabel"></span>
+    <button id="scrubTodayBtn" onclick="resetToToday()">↩ Today</button>
+  </div>
+
   <!-- ── View Container (CSS grid overlay — both views share the same space) ── -->
   <div id="viewContainer">
 
@@ -490,20 +512,16 @@ body::before{
     <div class="orbit orb2"></div>
     <div class="orbit orb1"></div>
 
-
     <svg id="moonSvg" width="220" height="220" viewBox="0 0 240 240">
       <defs>
         <clipPath id="mc"><circle cx="120" cy="120" r="115"/></clipPath>
       </defs>
-      <!-- Actual moon photo (Wikipedia Commons / NASA, public domain) -->
       <image id="moonImg"
         href="./moon.jpg"
         x="0" y="0" width="240" height="240"
         clip-path="url(#mc)"
         preserveAspectRatio="xMidYMid slice"/>
-      <!-- Phase shadow: updated by JS -->
       <path id="moonShadow" d="" fill="rgba(3,5,14,.94)" clip-path="url(#mc)"/>
-      <!-- Rim -->
       <circle cx="120" cy="120" r="115" fill="none" stroke="rgba(255,255,255,.055)" stroke-width="1.5"/>
     </svg>
   </div>
@@ -531,7 +549,6 @@ body::before{
   <!-- Cards -->
   <div id="cards">
 
-    <!-- Rise / Illuminated / Set -->
     <div class="card times-card">
       <div class="tc">
         <div class="tc-lbl">Moonrise</div>
@@ -549,7 +566,6 @@ body::before{
       </div>
     </div>
 
-    <!-- Horizon status -->
     <div class="card" style="padding:12px 20px">
       <div class="hz-row">
         <div class="hzdot" id="hzDot"></div>
@@ -557,7 +573,6 @@ body::before{
       </div>
     </div>
 
-    <!-- Info rows -->
     <div class="card">
       <div class="ir">
         <span class="ilbl">Lunar day</span>
@@ -651,6 +666,7 @@ const PHASE_INFO = {
 let loc = null, usingDefault = false;
 let reminder = JSON.parse(localStorage.getItem('moonReminder') || 'null');
 let selectedDays = reminder ? reminder.daysBefore : 3;
+let viewDate = new Date(); viewDate.setHours(12,0,0,0);
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 function getMoonSign(date) {
@@ -661,7 +677,7 @@ function getMoonSign(date) {
   const names   = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo',
                    'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
   const symbols = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
-                  .map(s => s + '︎'); // force text rendering, no emoji glyph
+                  .map(s => s + '︎');
   const i = Math.floor(lon / 30);
   return { name: names[i], symbol: symbols[i] };
 }
@@ -681,7 +697,6 @@ function phaseRoman(p) {
   return ['I','II','III','IV','V','VI','VII','VIII'][Math.round(p * 8) % 8];
 }
 
-// SVG shadow path for accurate phase shape
 function shadowPath(frac, waxing) {
   const R=115, cx=120, cy=120;
   if (frac >= .999) return '';
@@ -719,17 +734,15 @@ function fmtDateShort(d) {
   return d.toLocaleDateString([],{month:'short',day:'numeric'});
 }
 
-// Is moon above the horizon right now?
 function isAbove(rise, set) {
   const now = Date.now();
   if (!rise && !set) return false;
   if (!rise) return now < +set;
   if (!set)  return now > +rise;
   if (+rise < +set) return now >= +rise && now < +set;
-  return now < +set || now >= +rise;   // moonrise after moonset (crosses midnight)
+  return now < +set || now >= +rise;
 }
 
-// Moon phase emoji
 function moonEmoji(phase) {
   if (phase < 0.0625 || phase >= 0.9375) return '🌑';
   if (phase < 0.1875) return '🌒';
@@ -741,7 +754,6 @@ function moonEmoji(phase) {
   return '🌘';
 }
 
-// Build 5-day strip around next full moon
 function buildMiniWindow(nf) {
   const strip = document.getElementById('mwStrip');
   if (!strip || !nf) return;
@@ -764,9 +776,8 @@ function buildMiniWindow(nf) {
   }
 }
 
-// Find last full moon by iterating backwards
-function lastFullMoon() {
-  const base = new Date(); base.setHours(12,0,0,0);
+function lastFullMoon(from) {
+  const base = from ? new Date(from) : new Date(); base.setHours(12,0,0,0);
   let prev = SunCalc.getMoonIllumination(base).fraction;
   for (let i = 1; i <= 35; i++) {
     const d = new Date(base); d.setDate(base.getDate() - i); d.setHours(12,0,0,0);
@@ -780,9 +791,8 @@ function lastFullMoon() {
   return null;
 }
 
-// Find next full moon by iterating days
-function nextFullMoon() {
-  const base = new Date(); base.setHours(12,0,0,0);
+function nextFullMoon(from) {
+  const base = from ? new Date(from) : new Date(); base.setHours(12,0,0,0);
   let prev = SunCalc.getMoonIllumination(base).fraction;
   for (let i=1; i<=35; i++) {
     const d = new Date(base); d.setDate(base.getDate()+i);
@@ -795,7 +805,6 @@ function nextFullMoon() {
   }
   return null;
 }
-
 
 // ─── Location Sheet ───────────────────────────────────────────────────
 let locSearchTimer = null;
@@ -856,8 +865,10 @@ async function doSearch(q) {
 function selectCity(name, lat, lng) {
   loc = { lat, lng, city: name };
   usingDefault = false;
+  viewDate = new Date(); viewDate.setHours(12,0,0,0);
   document.getElementById('locBanner').classList.remove('show');
-  render(lat, lng, name);
+  updateScrubBanner();
+  render(lat, lng, name, viewDate);
   closeLocSheet();
   showToast('📍 ' + name);
 }
@@ -944,8 +955,8 @@ function checkReminder() {
 }
 
 // ─── Render ───────────────────────────────────────────────────────────
-function render(lat, lng, city) {
-  const now = new Date();
+function render(lat, lng, city, date) {
+  const now = date ? new Date(date) : new Date();
   const moon  = SunCalc.getMoonIllumination(now);
   const times = SunCalc.getMoonTimes(now, lat, lng);
   const pos   = SunCalc.getMoonPosition(now, lat, lng);
@@ -956,23 +967,19 @@ function render(lat, lng, city) {
   const lDay    = Math.floor(phase * 29.53) + 1;
   const tiltDeg = angle * 180 / Math.PI;
 
-  // Date
   document.getElementById('dateMain').textContent = fmtDateLong(now);
   document.getElementById('dateSub').textContent  =
     now.toLocaleDateString([],{weekday:'long'}) + (city ? ' · ' + city : '');
 
-  // Moon SVG
   const shadow = document.getElementById('moonShadow');
   shadow.setAttribute('d', shadowPath(frac, waxing));
   shadow.setAttribute('transform', `rotate(${tiltDeg.toFixed(1)},120,120)`);
 
-  // Phase text
   document.getElementById('phaseName').textContent = name;
   const sign = getMoonSign(now);
   document.getElementById('phaseSub').innerHTML =
     `Phase ${phaseRoman(phase)} · <span class="ps-sign">${sign.symbol} ${sign.name}</span>`;
 
-  // Phase dots (8 phases)
   const pIdx = Math.round(phase * 8) % 8;
   const dotsEl = document.getElementById('pdots');
   dotsEl.innerHTML = '';
@@ -982,7 +989,6 @@ function render(lat, lng, city) {
     dotsEl.appendChild(d);
   }
 
-  // Rise / Set
   const rise = (times.alwaysUp||times.alwaysDown) ? null : times.rise;
   const set  = (times.alwaysUp||times.alwaysDown) ? null : times.set;
 
@@ -990,7 +996,6 @@ function render(lat, lng, city) {
   document.getElementById('setEl').textContent   = times.alwaysUp ? '∞' : fmtTime(set);
   document.getElementById('illumEl').textContent = fmtPct(frac);
 
-  // Horizon
   let up = false;
   if (times.alwaysUp)   up = true;
   else if (!times.alwaysDown) up = isAbove(rise, set);
@@ -1003,12 +1008,10 @@ function render(lat, lng, city) {
     up               ? 'Moon is above the horizon now' :
                        'Moon is below the horizon now';
 
-  // Info rows
   document.getElementById('lunarDayEl').textContent = `Day ${lDay} of 29`;
   document.getElementById('distEl').textContent     = fmtDistKm(pos.distance);
 
-  // Countdown
-  const nf = nextFullMoon();
+  const nf = nextFullMoon(now);
   const cdEl   = document.getElementById('countdown');
   const cdVal  = document.getElementById('cdValue');
   const cdDate = document.getElementById('cdDate');
@@ -1016,13 +1019,12 @@ function render(lat, lng, city) {
   cdEl.classList.remove('tonight');
 
   if (nf) {
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(now); today.setHours(0,0,0,0);
     const nfDay = new Date(nf); nfDay.setHours(0,0,0,0);
     const days  = Math.round((nfDay - today) / 86400000);
 
-    // Just past full moon: waning and still very bright
     if (!waxing && frac > 0.98) {
-      const lf = lastFullMoon();
+      const lf = lastFullMoon(now);
       if (lf) {
         const lfDay = new Date(lf); lfDay.setHours(0,0,0,0);
         const daysAgo = Math.round((today - lfDay) / 86400000);
@@ -1032,7 +1034,7 @@ function render(lat, lng, city) {
                            : `${daysAgo} nights ago 🌕`;
         cdDate.textContent = fmtDateShort(lf);
         cdEl.classList.add('tonight');
-        buildMiniWindow(lf); // strip centered on last full moon
+        buildMiniWindow(lf);
       }
     } else {
       cdLbl.textContent = 'Next full moon';
@@ -1051,7 +1053,6 @@ function render(lat, lng, city) {
     }
   }
 
-  // Hide loading
   const ld = document.getElementById('loading');
   if (ld) { ld.classList.add('fade'); setTimeout(()=>ld.remove(), 600); }
 }
@@ -1078,8 +1079,10 @@ async function requestLocation() {
       done();
       loc = {lat:pos.coords.latitude, lng:pos.coords.longitude, city:'Your Location'};
       usingDefault = false;
+      viewDate = new Date(); viewDate.setHours(12,0,0,0);
       document.getElementById('locBanner').classList.remove('show');
-      render(loc.lat, loc.lng, loc.city);
+      updateScrubBanner();
+      render(loc.lat, loc.lng, loc.city, viewDate);
       showToast('📍 Location updated');
     },
     async () => {
@@ -1087,8 +1090,10 @@ async function requestLocation() {
       done();
       if (ip) {
         loc = ip; usingDefault = false;
+        viewDate = new Date(); viewDate.setHours(12,0,0,0);
         document.getElementById('locBanner').classList.remove('show');
-        render(loc.lat, loc.lng, loc.city);
+        updateScrubBanner();
+        render(loc.lat, loc.lng, loc.city, viewDate);
         showToast('📍 ' + (ip.city || 'Approximate location'));
       } else {
         useDefault();
@@ -1100,8 +1105,10 @@ async function requestLocation() {
 
 function useDefault() {
   loc = DEFAULT; usingDefault = true;
+  viewDate = new Date(); viewDate.setHours(12,0,0,0);
   document.getElementById('locBanner').classList.add('show');
-  render(loc.lat, loc.lng, loc.city);
+  updateScrubBanner();
+  render(loc.lat, loc.lng, loc.city, viewDate);
 }
 
 // ─── Month View ──────────────────────────────────────────────────────
@@ -1116,30 +1123,24 @@ function renderMonth() {
   document.getElementById('mvTitle').textContent =
     first.toLocaleDateString([], {month:'long', year:'numeric'});
 
-  // Show "Today" button only when not on the current month
   const now = new Date();
   const isCurrentMonth = (y === now.getFullYear() && m === now.getMonth());
   document.getElementById('mvTodayBtn').style.display = isCurrentMonth ? 'none' : 'inline';
 
-  // Start offset: Sun=0 … Sat=6
   let startDow = first.getDay();
-
   const grid = document.getElementById('mvGrid');
   grid.innerHTML = '';
 
-  // Empty leading cells
   for (let i = 0; i < startDow; i++) {
     const e = document.createElement('div');
     e.className = 'mvc';
     grid.appendChild(e);
   }
 
-  // Day cells
   for (let d = 1; d <= last.getDate(); d++) {
     const date = new Date(y, m, d, 12, 0, 0);
     const ill  = SunCalc.getMoonIllumination(date);
-    const isToday = (date.getTime() === today.getTime() ||
-      (date.getDate()===today.getDate() && date.getMonth()===today.getMonth() && date.getFullYear()===today.getFullYear()));
+    const isToday = (date.getDate()===today.getDate() && date.getMonth()===today.getMonth() && date.getFullYear()===today.getFullYear());
     const isFull  = ill.fraction > 0.985;
 
     const cell = document.createElement('div');
@@ -1181,26 +1182,20 @@ function setView(view, btn) {
   const monthV = document.getElementById('monthView');
 
   if (view === 'month') {
-    // ── Today → Month ───────────────────────────────────────────────
-    // Both views share the same grid space (#viewContainer), so monthV's
-    // cell positions are correct immediately — no need to wait for todayV to hide.
     const heroRect = document.getElementById('moonSvg').getBoundingClientRect();
     const clone    = createFlyingMoon(heroRect);
 
-    // ① Fade out today content; show month view invisible
     todayV.style.transition = 'opacity .24s ease';
     todayV.style.opacity    = '0';
     monthV.style.display    = 'block';
     monthV.style.opacity    = '0';
     renderMonth();
 
-    // ② Grid rises in as part of the month entrance
     const grid = document.getElementById('mvGrid');
     grid.classList.remove('mvg-enter');
-    void grid.offsetWidth;  // force reflow so animation restarts
+    void grid.offsetWidth;
     grid.classList.add('mvg-enter');
 
-    // ③ Moon starts flying NOW — rects are accurate because views share the same space
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const todayCell = monthV.querySelector('.mvc.today');
       let toRect;
@@ -1225,14 +1220,12 @@ function setView(view, btn) {
       clone.style.opacity = '0';
     }));
 
-    // ④ Month fades in (overlapping with today fade-out)
     setTimeout(() => {
       monthV.style.transition = 'opacity .3s ease';
       monthV.style.opacity    = '1';
       monthV.addEventListener('transitionend', () => monthV.style.transition = '', { once: true });
     }, 100);
 
-    // ⑤ Formalise today as hidden; clean up clone + grid animation
     setTimeout(() => {
       todayV.style.display    = 'none';
       todayV.style.transition = '';
@@ -1242,33 +1235,24 @@ function setView(view, btn) {
     setTimeout(() => grid.classList.remove('mvg-enter'), 650);
 
   } else if (view === 'today') {
-    // ── Month → Today: MOONRISE + STAGGER ───────────────────────────
-    // Calendar fades out. View rises from below (moonrise).
-    // Moon hero rises with the view; content sections stagger in after.
     monthV.style.transition = 'opacity .24s ease';
     monthV.style.opacity    = '0';
 
-    // Sections that stagger in after the moon hero (CSS animation — no setTimeout chain)
     const staggerEls = ['phaseSection', 'countdown', 'cards']
       .map(id => document.getElementById(id)).filter(Boolean);
 
-    // Clear any lingering stagger from a previous transition
     staggerEls.forEach(el => { el.classList.remove('sr'); el.style.animationDelay = ''; });
 
     todayV.style.display   = '';
     todayV.style.opacity   = '0';
     todayV.style.transform = 'translateY(28px)';
 
-    // Assign stagger delays and add class immediately
-    // fill-mode:both keeps sections at opacity:0 during the delay,
-    // then animates to opacity:1 — no inline opacity needed
     staggerEls.forEach((el, i) => {
-      el.style.animationDelay = (0.21 + i * 0.055) + 's'; // 210ms, 265ms, 320ms
+      el.style.animationDelay = (0.21 + i * 0.055) + 's';
       el.classList.add('sr');
     });
 
     setTimeout(() => {
-      // View rises (moon comes up first)
       todayV.style.transition = 'opacity .30s ease, transform .4s cubic-bezier(.25,.46,.45,.94)';
       todayV.style.opacity    = '1';
       todayV.style.transform  = 'translateY(0)';
@@ -1279,12 +1263,10 @@ function setView(view, btn) {
       }, 450);
     }, 130);
 
-    // Clean up animation after all sections have settled
     setTimeout(() => {
       staggerEls.forEach(el => { el.classList.remove('sr'); el.style.animationDelay = ''; });
     }, 750);
 
-    // Formalise month as hidden
     setTimeout(() => {
       monthV.style.display    = 'none';
       monthV.style.transition = '';
@@ -1314,9 +1296,101 @@ function showToast(msg) {
   t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
 }
 
+// ─── Date Scrub (swipe on moon) ──────────────────────────────────────────
+let swipeStart = null;
+const moonSection = document.getElementById('moonSection');
+
+function isToday(date) {
+  const t = new Date(); t.setHours(0,0,0,0);
+  const d = new Date(date); d.setHours(0,0,0,0);
+  return t.getTime() === d.getTime();
+}
+
+function updateScrubBanner() {
+  const banner = document.getElementById('scrubBanner');
+  const label  = document.getElementById('scrubDateLabel');
+  if (isToday(viewDate)) {
+    banner.classList.remove('show');
+  } else {
+    label.textContent = '📅 ' + fmtDateLong(viewDate);
+    banner.classList.add('show');
+  }
+}
+
+function resetToToday() {
+  viewDate = new Date(); viewDate.setHours(12,0,0,0);
+  updateScrubBanner();
+  if (loc) render(loc.lat, loc.lng, loc.city, viewDate);
+}
+
+moonSection.addEventListener('touchstart', e => {
+  swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+}, { passive: true });
+
+moonSection.addEventListener('touchmove', e => {
+  if (!swipeStart) return;
+  const dx = e.touches[0].clientX - swipeStart.x;
+  const dy = e.touches[0].clientY - swipeStart.y;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const moon = document.getElementById('moonSvg');
+    const shift = Math.max(-60, Math.min(60, dx * 0.35));
+    moon.style.transform = `translateX(${shift}px)`;
+  }
+}, { passive: true });
+
+moonSection.addEventListener('touchend', e => {
+  if (!swipeStart) return;
+  const dx = e.changedTouches[0].clientX - swipeStart.x;
+  const moon = document.getElementById('moonSvg');
+
+  if (Math.abs(dx) > 40) {
+    const direction = dx < 0 ? 1 : -1;
+
+    moon.style.transition = 'transform .18s ease, opacity .15s ease';
+    moon.style.transform  = `translateX(${direction * -140}px)`;
+    moon.style.opacity    = '0';
+
+    setTimeout(() => {
+      viewDate = new Date(viewDate);
+      viewDate.setDate(viewDate.getDate() + direction);
+      viewDate.setHours(12,0,0,0);
+
+      if (loc) render(loc.lat, loc.lng, loc.city, viewDate);
+      updateScrubBanner();
+
+      moon.style.transition = 'none';
+      moon.style.transform  = `translateX(${direction * 140}px)`;
+      moon.style.opacity    = '0';
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        moon.style.transition = 'transform .28s cubic-bezier(.25,.46,.45,.94), opacity .22s ease';
+        moon.style.transform  = 'translateX(0)';
+        moon.style.opacity    = '1';
+      }));
+
+      setTimeout(() => {
+        moon.style.transition = '';
+        moon.style.transform  = '';
+        moon.style.opacity    = '';
+      }, 350);
+    }, 180);
+
+  } else {
+    moon.style.transition = 'transform .18s ease';
+    moon.style.transform  = 'translateX(0)';
+    setTimeout(() => { moon.style.transition = ''; moon.style.transform = ''; }, 200);
+  }
+
+  swipeStart = null;
+}, { passive: true });
+
 // ─── Refresh on tab focus ─────────────────────────────────────────────
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && loc) render(loc.lat, loc.lng, loc.city);
+  if (!document.hidden && loc) {
+    viewDate = new Date(); viewDate.setHours(12,0,0,0);
+    updateScrubBanner();
+    render(loc.lat, loc.lng, loc.city, viewDate);
+  }
 });
 
 // ─── Init ─────────────────────────────────────────────────────────────
