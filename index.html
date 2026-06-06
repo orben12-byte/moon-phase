@@ -325,6 +325,23 @@ body::before{
   background:var(--accent);border:1.5px solid #050810;
 }
 
+/* ── Day nav arrows ── */
+.day-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(224,157,255,.07);
+  border:1px solid rgba(224,157,255,.18);
+  color:var(--accent);font-size:22px;line-height:1;
+  cursor:pointer;z-index:10;
+  transition:background .15s,opacity .15s,transform .15s;
+  opacity:.65;user-select:none;-webkit-tap-highlight-color:transparent;
+}
+.day-nav:hover{opacity:1}
+.day-nav:active{background:rgba(224,157,255,.22);opacity:1;transform:translateY(-50%) scale(.92)}
+#dayPrev{left:16px}
+#dayNext{right:16px}
+
 /* ── Scrub date banner ── */
 #scrubBanner{
   display:none;margin:6px 22px 0;padding:7px 16px;
@@ -509,6 +526,8 @@ body::before{
 
   <!-- Moon SVG -->
   <div id="moonSection">
+    <button class="day-nav" id="dayPrev" onclick="scrubDay(-1)">‹</button>
+    <button class="day-nav" id="dayNext" onclick="scrubDay(1)">›</button>
     <div class="orbit orb2"></div>
     <div class="orbit orb1"></div>
 
@@ -1296,9 +1315,36 @@ function showToast(msg) {
   t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1800);
 }
 
-// ─── Date Scrub (swipe on moon) ──────────────────────────────────────────
+// ─── Date Scrub (swipe on moon + arrow buttons) ──────────────────────────
 let swipeStart = null;
 const moonSection = document.getElementById('moonSection');
+
+function scrubDay(direction) {
+  const moon = document.getElementById('moonSvg');
+  moon.style.transition = 'transform .18s ease, opacity .15s ease';
+  moon.style.transform  = `translateX(${direction * -140}px)`;
+  moon.style.opacity    = '0';
+  setTimeout(() => {
+    viewDate = new Date(viewDate);
+    viewDate.setDate(viewDate.getDate() + direction);
+    viewDate.setHours(12,0,0,0);
+    if (loc) render(loc.lat, loc.lng, loc.city, viewDate);
+    updateScrubBanner();
+    moon.style.transition = 'none';
+    moon.style.transform  = `translateX(${direction * 140}px)`;
+    moon.style.opacity    = '0';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      moon.style.transition = 'transform .28s cubic-bezier(.25,.46,.45,.94), opacity .22s ease';
+      moon.style.transform  = 'translateX(0)';
+      moon.style.opacity    = '1';
+    }));
+    setTimeout(() => {
+      moon.style.transition = '';
+      moon.style.transform  = '';
+      moon.style.opacity    = '';
+    }, 350);
+  }, 180);
+}
 
 function isToday(date) {
   const t = new Date(); t.setHours(0,0,0,0);
@@ -1344,37 +1390,7 @@ moonSection.addEventListener('touchend', e => {
   const moon = document.getElementById('moonSvg');
 
   if (Math.abs(dx) > 40) {
-    const direction = dx < 0 ? 1 : -1;
-
-    moon.style.transition = 'transform .18s ease, opacity .15s ease';
-    moon.style.transform  = `translateX(${direction * -140}px)`;
-    moon.style.opacity    = '0';
-
-    setTimeout(() => {
-      viewDate = new Date(viewDate);
-      viewDate.setDate(viewDate.getDate() + direction);
-      viewDate.setHours(12,0,0,0);
-
-      if (loc) render(loc.lat, loc.lng, loc.city, viewDate);
-      updateScrubBanner();
-
-      moon.style.transition = 'none';
-      moon.style.transform  = `translateX(${direction * 140}px)`;
-      moon.style.opacity    = '0';
-
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        moon.style.transition = 'transform .28s cubic-bezier(.25,.46,.45,.94), opacity .22s ease';
-        moon.style.transform  = 'translateX(0)';
-        moon.style.opacity    = '1';
-      }));
-
-      setTimeout(() => {
-        moon.style.transition = '';
-        moon.style.transform  = '';
-        moon.style.opacity    = '';
-      }, 350);
-    }, 180);
-
+    scrubDay(dx < 0 ? 1 : -1);
   } else {
     moon.style.transition = 'transform .18s ease';
     moon.style.transform  = 'translateX(0)';
